@@ -150,8 +150,10 @@ class RouletteSpin {
   private currentPocket(): number {
     const n = this.c.names.length;
     const step = (Math.PI * 2) / n;
+    // ポケットiは中心角±step/2の範囲。中心ぴったり(=i+0.5)をroundすると
+    // 隣にずれるオフバイワンになるためfloorで判定する
     const a = this.ballAngle() + Math.PI / 2 + step / 2;
-    return ((Math.round(a / step) % n) + n) % n;
+    return ((Math.floor(a / step) % n) + n) % n;
   }
 
   private draw(): void {
