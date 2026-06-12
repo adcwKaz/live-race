@@ -5,13 +5,12 @@ import { loadState, saveState } from './core/storage';
 import { AudioEngine } from './core/audio';
 import type { RaceController, ThemeModule } from './themes/types';
 import { keibaTheme } from './themes/keiba';
+import { carTheme } from './themes/car';
+import { duckTheme } from './themes/duck';
+import { marathonTheme } from './themes/marathon';
+import { rouletteTheme } from './themes/roulette';
 
-const THEMES: ThemeModule[] = [
-  keibaTheme,
-  { id: 'car', name: 'カーレース', icon: '🏎️', maxLanes: 8, available: false, run: () => { throw new Error('not available'); } },
-  { id: 'duck', name: 'アヒルボート', icon: '🦆', maxLanes: 10, available: false, run: () => { throw new Error('not available'); } },
-  { id: 'roulette', name: 'ルーレット', icon: '🎰', maxLanes: 24, available: false, run: () => { throw new Error('not available'); } },
-];
+const THEMES: ThemeModule[] = [keibaTheme, carTheme, duckTheme, marathonTheme, rouletteTheme];
 
 const $ = <T extends HTMLElement>(sel: string): T => document.querySelector(sel) as T;
 
@@ -90,7 +89,7 @@ function startRace(names: string[]): void {
   audio.unlock();
   currentNames = names;
   currentWinner = pickWinner(names.length);
-  const script = generateRaceScript(names, currentWinner, getDuration());
+  const script = generateRaceScript(names, currentWinner, getDuration(), selectedTheme().flavor);
 
   screens.setup.classList.remove('active');
   screens.race.classList.add('active');

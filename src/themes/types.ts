@@ -1,4 +1,4 @@
-import type { RaceScript } from '../core/raceScript';
+import type { RaceScript, EventFlavor } from '../core/raceScript';
 import type { AudioEngine } from '../core/audio';
 
 export interface RaceContext {
@@ -26,5 +26,7 @@ export interface ThemeModule {
   /** 1レースに同時表示できる最大人数 */
   maxLanes: number;
   available: boolean;
+  /** 実況テロップの語彙(省略時は競馬風) */
+  flavor?: EventFlavor;
   run(ctx: RaceContext): RaceController;
 }

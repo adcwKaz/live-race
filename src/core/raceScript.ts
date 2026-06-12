@@ -23,6 +23,25 @@ export interface RaceScript {
   events: RaceEvent[];
 }
 
+/** テーマごとの実況の語彙 */
+export interface EventFlavor {
+  start: string;
+  lead(name: string): string;
+  hold(name: string): string;
+  pass(name: string): string;
+  corner: string;
+  closing: string;
+}
+
+const DEFAULT_FLAVOR: EventFlavor = {
+  start: 'スタート!!',
+  lead: (name) => `${name} が先頭に立った!`,
+  hold: (name) => `${name} 逃げる逃げる!`,
+  pass: (name) => `${name} がかわして先頭!`,
+  corner: '最終コーナーを回った!',
+  closing: 'ゴール前、大接戦だーーっ!!',
+};
+
 /**
  * レース台本を生成する。
  * 当選者(winnerIndex)が必ず1着になるよう各レーサーのゴール時刻を先に決め、
@@ -32,6 +51,7 @@ export function generateRaceScript(
   names: string[],
   winnerIndex: number,
   duration: number,
+  flavor: EventFlavor = DEFAULT_FLAVOR,
 ): RaceScript {
   const n = names.length;
 
@@ -85,16 +105,16 @@ export function generateRaceScript(
   };
 
   // 実況テロップ: 実際の描画位置と一致するよう、台本から先頭をサンプリングして生成
-  const events: RaceEvent[] = [{ time: 0, text: 'スタート!!', sfx: 'start' }];
+  const events: RaceEvent[] = [{ time: 0, text: flavor.start, sfx: 'start' }];
   const mid1 = leaderAt(duration * 0.3);
-  events.push({ time: duration * 0.3, text: `${names[mid1]} が先頭に立った!` });
+  events.push({ time: duration * 0.3, text: flavor.lead(names[mid1]) });
   const mid2 = leaderAt(duration * 0.55);
   events.push({
     time: duration * 0.55,
-    text: mid2 === mid1 ? `${names[mid2]} 逃げる逃げる!` : `${names[mid2]} がかわして先頭!`,
+    text: mid2 === mid1 ? flavor.hold(names[mid2]) : flavor.pass(names[mid2]),
   });
-  events.push({ time: duration * 0.75, text: '最終コーナーを回った!', sfx: 'bell' });
-  events.push({ time: duration * 0.88, text: 'ゴール前、大接戦だーーっ!!', sfx: 'crowd' });
+  events.push({ time: duration * 0.75, text: flavor.corner, sfx: 'bell' });
+  events.push({ time: duration * 0.88, text: flavor.closing, sfx: 'crowd' });
 
   return { winnerIndex, duration, photoFinish, racers, events };
 }

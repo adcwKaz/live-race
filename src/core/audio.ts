@@ -2,8 +2,76 @@
  * 音響エンジン。
  * 効果音はすべてWeb Audio APIで合成する(音源ファイル不要)。
  * BGMは public/bgm/<テーマID>.mp3 があればそれを再生し、
- * 無ければチップチューン風の自動生成ループにフォールバックする。
+ * 無ければテーマ別のチップチューン風自動生成ループにフォールバックする。
  */
+
+export type AmbientKind = 'gallop' | 'engine' | 'water' | 'steps';
+
+interface ChiptunePattern {
+  bpm: number;
+  lead: Array<number | null>;
+  bass: Array<number | null>;
+}
+
+/** テーマ別チップチューン(MIDIノート番号、nullは休符、2小節=32ステップ) */
+const CHIPTUNE: Record<string, ChiptunePattern> = {
+  keiba: {
+    bpm: 152,
+    lead: [
+      72, null, 76, null, 79, null, 76, null, 72, null, 76, null, 81, 79, 76, null,
+      74, null, 77, null, 81, null, 77, null, 79, null, 76, null, 72, null, null, null,
+    ],
+    bass: [
+      48, null, 48, null, 55, null, 48, null, 53, null, 53, null, 55, null, 55, null,
+      50, null, 50, null, 57, null, 50, null, 55, null, 55, null, 48, null, 48, null,
+    ],
+  },
+  car: {
+    bpm: 168,
+    lead: [
+      64, null, 64, 67, null, 67, 71, null, 71, null, 69, 67, 64, null, 62, null,
+      64, null, 64, 67, null, 67, 71, null, 74, 72, 71, 69, 67, null, 64, null,
+    ],
+    bass: [
+      40, 40, null, 40, 40, null, 40, null, 43, 43, null, 43, 43, null, 43, null,
+      45, 45, null, 45, 45, null, 45, null, 47, 47, null, 47, 43, null, 40, null,
+    ],
+  },
+  duck: {
+    bpm: 116,
+    lead: [
+      72, null, null, 76, null, null, 79, null, 76, null, 72, null, 74, null, 71, null,
+      72, null, null, 76, null, null, 81, null, 79, null, 76, null, 72, null, null, null,
+    ],
+    bass: [
+      48, null, 52, null, 55, null, 52, null, 53, null, 57, null, 55, null, 52, null,
+      48, null, 52, null, 55, null, 52, null, 43, null, 47, null, 48, null, null, null,
+    ],
+  },
+  marathon: {
+    bpm: 144,
+    lead: [
+      65, null, 69, null, 72, null, 69, null, 65, null, 69, null, 74, 72, 69, null,
+      67, null, 70, null, 74, null, 70, null, 72, null, 69, null, 65, null, null, null,
+    ],
+    bass: [
+      41, null, 41, null, 48, null, 41, null, 46, null, 46, null, 53, null, 46, null,
+      43, null, 43, null, 50, null, 43, null, 48, null, 48, null, 41, null, 41, null,
+    ],
+  },
+  roulette: {
+    bpm: 116,
+    lead: [
+      69, null, 72, null, 76, null, 75, 76, 72, null, 69, null, null, null, null, null,
+      68, null, 71, null, 74, null, 73, 74, 71, null, 68, null, null, null, null, null,
+    ],
+    bass: [
+      45, null, null, 48, null, null, 52, null, 45, null, null, 48, null, null, 52, null,
+      44, null, null, 47, null, null, 51, null, 40, null, null, 43, null, null, 47, null,
+    ],
+  },
+};
+
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -15,7 +83,9 @@ export class AudioEngine {
   private bgmTimer: number | null = null;
   private bgmStep = 0;
   private bgmNextTime = 0;
-  private gallopTimer: number | null = null;
+  private ambientTimer: number | null = null;
+  private ambientNodes: AudioNode[] = [];
+  private lastTickAt = 0;
 
   /** ユーザー操作を起点に呼ぶ(ブラウザの自動再生制限の解除) */
   unlock(): void {
@@ -51,7 +121,7 @@ export class AudioEngine {
     return !!this.ctx && !!this.master;
   }
 
-  // ---------- 効果音 ----------
+  // ---------- 基本波形 ----------
 
   private tone(
     freq: number,
@@ -90,6 +160,8 @@ export class AudioEngine {
     src.connect(filter).connect(g).connect(this.master);
     src.start(start);
   }
+
+  // ---------- 単発効果音 ----------
 
   /** 出走ファンファーレ(オリジナルの短いメロディ)。所要時間(秒)を返す */
   fanfare(): number {
@@ -134,7 +206,7 @@ export class AudioEngine {
     }
   }
 
-  /** 写真判定のドラムロール */
+  /** 写真判定などのドラムロール */
   drumroll(dur: number): void {
     if (!this.ready) return;
     const t = this.ctx!.currentTime;
@@ -142,6 +214,24 @@ export class AudioEngine {
     for (let i = 0; i < dur / interval; i++) {
       this.noise(t + i * interval, 0.04, 300, 0.12);
     }
+  }
+
+  /** ルーレットの玉がポケットを通過するカチ音(連打防止つき) */
+  tick(): void {
+    if (!this.ready) return;
+    const t = this.ctx!.currentTime;
+    if (t - this.lastTickAt < 0.025) return;
+    this.lastTickAt = t;
+    this.tone(2400, t, 0.025, 'square', 0.09);
+    this.noise(t, 0.02, 4000, 0.06);
+  }
+
+  /** 当選ベル(チーン) */
+  ding(): void {
+    if (!this.ready) return;
+    const t = this.ctx!.currentTime;
+    this.tone(1318.5, t, 0.7, 'triangle', 0.2);
+    this.tone(1760, t + 0.02, 0.9, 'triangle', 0.14);
   }
 
   /** 勝利ジングル */
@@ -161,29 +251,66 @@ export class AudioEngine {
     this.crowd(3);
   }
 
-  /** 蹄音ループ開始(3連符のダダダッ) */
-  gallopStart(): void {
-    if (!this.ready || this.gallopTimer !== null) return;
-    const beat = 0.42;
+  // ---------- 環境音ループ ----------
+
+  ambientStart(kind: AmbientKind): void {
+    this.ambientStop();
+    if (!this.ready) return;
+    if (kind === 'engine') {
+      this.startEngineDrone();
+      return;
+    }
+    // パターン系(蹄・水しぶき・足音)はスケジューラで回す
+    const pattern: Record<Exclude<AmbientKind, 'engine'>, { beat: number; hits: number[]; freq: number; gain: number; dur: number }> = {
+      gallop: { beat: 0.42, hits: [0, 0.09, 0.18], freq: 180, gain: 0.08, dur: 0.05 },
+      water: { beat: 0.5, hits: [0, 0.25], freq: 1100, gain: 0.05, dur: 0.18 },
+      steps: { beat: 0.28, hits: [0, 0.14], freq: 500, gain: 0.06, dur: 0.04 },
+    };
+    const p = pattern[kind];
     let next = this.ctx!.currentTime + 0.1;
     const schedule = () => {
       if (!this.ctx) return;
       while (next < this.ctx.currentTime + 0.5) {
-        for (const off of [0, 0.09, 0.18]) {
-          this.noise(next + off, 0.05, 180, 0.08);
-        }
-        next += beat;
+        for (const off of p.hits) this.noise(next + off, p.dur, p.freq, p.gain);
+        next += p.beat;
       }
     };
     schedule();
-    this.gallopTimer = window.setInterval(schedule, 200);
+    this.ambientTimer = window.setInterval(schedule, 200);
   }
 
-  gallopStop(): void {
-    if (this.gallopTimer !== null) {
-      clearInterval(this.gallopTimer);
-      this.gallopTimer = null;
+  /** エンジン音: のこぎり波ドローン+ピッチ揺らぎ */
+  private startEngineDrone(): void {
+    const ctx = this.ctx!;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 85;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.7;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 18;
+    lfo.connect(lfoGain).connect(osc.frequency);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 420;
+    const g = ctx.createGain();
+    g.gain.value = 0.07;
+    osc.connect(filter).connect(g).connect(this.master!);
+    osc.start();
+    lfo.start();
+    this.ambientNodes = [osc, lfo, g];
+  }
+
+  ambientStop(): void {
+    if (this.ambientTimer !== null) {
+      clearInterval(this.ambientTimer);
+      this.ambientTimer = null;
     }
+    for (const node of this.ambientNodes) {
+      if (node instanceof OscillatorNode) node.stop();
+      node.disconnect();
+    }
+    this.ambientNodes = [];
   }
 
   // ---------- BGM ----------
@@ -201,11 +328,11 @@ export class AudioEngine {
       })
       .catch(() => {
         // 音源ファイルが無い/再生不可 → チップチューン生成にフォールバック
-        this.startChiptune();
+        this.startChiptune(themeId);
       });
     audio.addEventListener('error', () => {
       if (this.bgmAudio === audio) this.bgmAudio = null;
-      this.startChiptune();
+      this.startChiptune(themeId);
     });
   }
 
@@ -221,19 +348,10 @@ export class AudioEngine {
   }
 
   /** チップチューン風BGMループ(16分音符のステップシーケンサ) */
-  private startChiptune(): void {
+  private startChiptune(themeId: string): void {
     if (!this.ready || this.bgmTimer !== null) return;
-    const bpm = 152;
-    const step16 = 60 / bpm / 4;
-    // 2小節ループ。数値はMIDIノート、nullは休符
-    const lead: Array<number | null> = [
-      72, null, 76, null, 79, null, 76, null, 72, null, 76, null, 81, 79, 76, null,
-      74, null, 77, null, 81, null, 77, null, 79, null, 76, null, 72, null, null, null,
-    ];
-    const bass: Array<number | null> = [
-      48, null, 48, null, 55, null, 48, null, 53, null, 53, null, 55, null, 55, null,
-      50, null, 50, null, 57, null, 50, null, 55, null, 55, null, 48, null, 48, null,
-    ];
+    const pattern = CHIPTUNE[themeId] ?? CHIPTUNE.keiba;
+    const step16 = 60 / pattern.bpm / 4;
     const midi = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
     this.bgmStep = 0;
     this.bgmNextTime = this.ctx!.currentTime + 0.1;
@@ -241,11 +359,11 @@ export class AudioEngine {
     const schedule = () => {
       if (!this.ctx || !this.bgmGain) return;
       while (this.bgmNextTime < this.ctx.currentTime + 0.3) {
-        const s = this.bgmStep % lead.length;
+        const s = this.bgmStep % pattern.lead.length;
         const t = this.bgmNextTime;
-        const l = lead[s];
+        const l = pattern.lead[s];
         if (l !== null) this.tone(midi(l), t, step16 * 1.8, 'square', 0.06, this.bgmGain);
-        const b = bass[s];
+        const b = pattern.bass[s];
         if (b !== null) this.tone(midi(b), t, step16 * 1.6, 'triangle', 0.12, this.bgmGain);
         if (s % 2 === 0) this.noise(t, 0.03, 6000, 0.025); // ハイハット
         this.bgmStep++;
@@ -259,6 +377,6 @@ export class AudioEngine {
   /** レース終了時など全停止 */
   stopAll(): void {
     this.stopBgm();
-    this.gallopStop();
+    this.ambientStop();
   }
 }
