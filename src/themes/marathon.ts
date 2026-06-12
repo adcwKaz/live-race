@@ -108,7 +108,7 @@ export const marathonTheme: ThemeModule = {
   id: 'marathon',
   name: 'マラソン',
   icon: '🏃',
-  maxLanes: 10,
+  maxLanes: 100,
   available: true,
   flavor: {
     start: '号砲! スタート!!',

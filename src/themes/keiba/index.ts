@@ -53,7 +53,7 @@ export const keibaTheme: ThemeModule = {
   id: 'keiba',
   name: '競馬',
   icon: '🏇',
-  maxLanes: 12,
+  maxLanes: 100,
   available: true,
   run(ctx: RaceContext): RaceController {
     const race = new KeibaRace(ctx);

@@ -59,6 +59,17 @@ const CHIPTUNE: Record<string, ChiptunePattern> = {
       43, null, 43, null, 50, null, 43, null, 48, null, 48, null, 41, null, 41, null,
     ],
   },
+  golf: {
+    bpm: 100,
+    lead: [
+      67, null, null, null, 72, null, null, null, 71, null, 67, null, 64, null, null, null,
+      65, null, null, null, 69, null, null, null, 67, null, 64, null, 60, null, null, null,
+    ],
+    bass: [
+      48, null, null, 52, null, null, 55, null, 48, null, null, 52, null, null, 55, null,
+      45, null, null, 48, null, null, 53, null, 43, null, null, 47, null, null, 48, null,
+    ],
+  },
   roulette: {
     bpm: 116,
     lead: [
@@ -224,6 +235,32 @@ export class AudioEngine {
     this.lastTickAt = t;
     this.tone(2400, t, 0.025, 'square', 0.09);
     this.noise(t, 0.02, 4000, 0.06);
+  }
+
+  /** ゴルフのスイング(ヒュッ+カキーン) */
+  swing(): void {
+    if (!this.ready) return;
+    const t = this.ctx!.currentTime;
+    this.noise(t, 0.12, 2500, 0.12); // 素振りの風切り
+    this.tone(2093, t + 0.13, 0.25, 'square', 0.16); // インパクト
+    this.tone(3136, t + 0.13, 0.18, 'square', 0.1);
+    this.noise(t + 0.13, 0.05, 5000, 0.1);
+  }
+
+  /** ボールが芝に落ちるバウンド音 */
+  bounce(): void {
+    if (!this.ready) return;
+    const t = this.ctx!.currentTime;
+    this.noise(t, 0.06, 250, 0.1);
+  }
+
+  /** カップイン(カコン!) */
+  cupIn(): void {
+    if (!this.ready) return;
+    const t = this.ctx!.currentTime;
+    this.tone(520, t, 0.07, 'square', 0.18);
+    this.tone(330, t + 0.08, 0.18, 'square', 0.16);
+    this.noise(t + 0.08, 0.1, 400, 0.1);
   }
 
   /** 当選ベル(チーン) */

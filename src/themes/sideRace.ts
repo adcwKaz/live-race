@@ -217,8 +217,8 @@ export abstract class SideRace {
     g.fillRect(0, trackTop - 14, VW, 5);
     g.fillRect(0, trackBottom + 4, VW, 5);
 
-    // レーン区切り(破線、カメラに合わせて流す)
-    if (this.cfg.laneLineColor) {
+    // レーン区切り(破線、カメラに合わせて流す)。大人数で潰れるときは省略
+    if (this.cfg.laneLineColor && laneH >= 9) {
       g.fillStyle = this.cfg.laneLineColor;
       for (let lane = 1; lane < n; lane++) {
         const y = trackTop + laneH * lane;
@@ -246,21 +246,24 @@ export abstract class SideRace {
       if (x < -120 || x > VW + 120) continue;
       const frame = Math.floor((this.raceClock * 9 + i * 1.3) % 2);
       const spr = this.sprites[i][this.phase === 'intro' ? 0 : frame];
-      const spriteScale = Math.min(3.4, Math.max(1.4, (laneH * 0.95) / spr.height));
+      // 人数が増えるほど小型化(100名でも全員表示する)
+      const spriteScale = Math.min(3.4, Math.max(0.3, (laneH * 0.95) / spr.height));
       const w = spr.width * spriteScale;
       const h = spr.height * spriteScale;
       g.drawImage(spr, x - w / 2, y - h / 2, w, h);
-      // 名前ラベル
-      g.font = `bold ${Math.max(13, spriteScale * 5.5)}px sans-serif`;
+      // 名前ラベル(小型化に合わせて縮小)
+      const fontSize = Math.min(18, Math.max(8, spriteScale * 5.5));
+      const labelH = fontSize + 4;
+      g.font = `bold ${fontSize}px sans-serif`;
       const label = this.c.names[i];
       const tw = g.measureText(label).width;
       g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(x - tw / 2 - 5, y - h / 2 - 18, tw + 10, 17);
+      g.fillRect(x - tw / 2 - 4, y - h / 2 - labelH - 1, tw + 8, labelH);
       g.fillStyle = SILKS_COLORS[i % SILKS_COLORS.length];
-      g.fillRect(x - tw / 2 - 5, y - h / 2 - 18, 4, 17);
+      g.fillRect(x - tw / 2 - 4, y - h / 2 - labelH - 1, 3, labelH);
       g.fillStyle = '#fff';
       g.textBaseline = 'top';
-      g.fillText(label, x - tw / 2 + 2, y - h / 2 - 16);
+      g.fillText(label, x - tw / 2 + 1, y - h / 2 - labelH + 1);
     }
 
     this.drawMiniMap(g);
@@ -312,11 +315,12 @@ export abstract class SideRace {
     g.stroke();
     g.fillStyle = '#ffb300';
     g.fillRect(mx + mw - 2, my - 8, 4, 16); // ゴール位置
+    const dotR = this.c.names.length > 30 ? 3 : 5;
     this.c.names.forEach((_, i) => {
       g.fillStyle = SILKS_COLORS[i % SILKS_COLORS.length];
       const px = mx + (this.progressPx(i) / TRACK_LEN) * mw;
       g.beginPath();
-      g.arc(px, my, 5, 0, Math.PI * 2);
+      g.arc(px, my, dotR, 0, Math.PI * 2);
       g.fill();
     });
   }
@@ -346,31 +350,7 @@ export abstract class SideRace {
   }
 
   private drawIntro(g: CanvasRenderingContext2D): void {
-    const n = this.c.names.length;
-    g.fillStyle = 'rgba(10,12,24,0.82)';
-    g.fillRect(0, 0, VW, VH);
-    g.fillStyle = '#ffb300';
-    g.font = 'bold 44px sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'top';
-    g.fillText(this.cfg.introTitle, VW / 2, 50);
-
-    const cols = n > 8 ? 2 : 1;
-    const rows = Math.ceil(n / cols);
-    const rowH = Math.min(48, 500 / rows);
-    g.font = `bold ${Math.min(26, rowH * 0.55)}px sans-serif`;
-    for (let i = 0; i < n; i++) {
-      const col = Math.floor(i / rows);
-      const row = i % rows;
-      const x = cols === 1 ? VW / 2 : VW * (col === 0 ? 0.3 : 0.7);
-      const y = 140 + row * rowH;
-      g.fillStyle = SILKS_COLORS[i % SILKS_COLORS.length];
-      g.fillRect(x - 180, y, rowH * 0.6, rowH * 0.6);
-      g.fillStyle = '#fff';
-      g.textAlign = 'left';
-      g.fillText(`${i + 1}  ${this.c.names[i]}`, x - 180 + rowH * 0.8, y);
-    }
-    g.textAlign = 'start';
+    drawEntryList(g, this.c.names, this.cfg.introTitle);
   }
 
   private drawPhotoFlash(g: CanvasRenderingContext2D): void {
@@ -380,6 +360,38 @@ export abstract class SideRace {
       g.fillRect(0, 0, VW, VH);
     }
   }
+}
+
+/** 出走表オーバーレイの共通描画。人数に応じて列数とフォントを自動調整(最大100名) */
+export function drawEntryList(g: CanvasRenderingContext2D, names: string[], title: string): void {
+  const n = names.length;
+  g.fillStyle = 'rgba(10,12,24,0.82)';
+  g.fillRect(0, 0, VW, VH);
+  g.fillStyle = '#ffb300';
+  g.font = 'bold 44px sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'top';
+  g.fillText(title, VW / 2, 42);
+
+  const cols = n <= 8 ? 1 : n <= 16 ? 2 : n <= 36 ? 3 : n <= 64 ? 4 : 5;
+  const rows = Math.ceil(n / cols);
+  const rowH = Math.min(48, 540 / rows);
+  const fontSize = Math.min(26, Math.max(10, rowH * 0.55));
+  const colW = Math.min(380, (VW - 120) / cols);
+  const left = VW / 2 - (colW * cols) / 2;
+  g.font = `bold ${fontSize}px sans-serif`;
+  for (let i = 0; i < n; i++) {
+    const col = Math.floor(i / rows);
+    const row = i % rows;
+    const x = left + col * colW + 20;
+    const y = 130 + row * rowH;
+    g.fillStyle = SILKS_COLORS[i % SILKS_COLORS.length];
+    g.fillRect(x, y, rowH * 0.55, rowH * 0.55);
+    g.fillStyle = '#fff';
+    g.textAlign = 'left';
+    g.fillText(`${i + 1}  ${names[i]}`, x + rowH * 0.75, y, colW - rowH);
+  }
+  g.textAlign = 'start';
 }
 
 /** 観客席ストリップ(ドット人混み)を作る共通ヘルパー */

@@ -89,7 +89,7 @@ export const carTheme: ThemeModule = {
   id: 'car',
   name: 'カーレース',
   icon: '🏎️',
-  maxLanes: 8,
+  maxLanes: 100,
   available: true,
   flavor: {
     start: 'シグナル グリーン! スタート!!',

@@ -99,7 +99,7 @@ export const duckTheme: ThemeModule = {
   id: 'duck',
   name: 'アヒルボート',
   icon: '🦆',
-  maxLanes: 10,
+  maxLanes: 100,
   available: true,
   flavor: {
     start: 'ガーガー、スタート!!',

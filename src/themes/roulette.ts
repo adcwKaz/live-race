@@ -281,7 +281,7 @@ export const rouletteTheme: ThemeModule = {
   id: 'roulette',
   name: 'ルーレット',
   icon: '🎰',
-  maxLanes: 24,
+  maxLanes: 100,
   available: true,
   run(ctx: RaceContext): RaceController {
     const spin = new RouletteSpin(ctx);

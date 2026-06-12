@@ -6,6 +6,7 @@ export interface SavedState {
   duration: number;
   volume: number;
   muted: boolean;
+  narration: boolean;
 }
 
 const DEFAULTS: SavedState = {
@@ -14,6 +15,7 @@ const DEFAULTS: SavedState = {
   duration: 45,
   volume: 70,
   muted: false,
+  narration: false,
 };
 
 export function loadState(): SavedState {

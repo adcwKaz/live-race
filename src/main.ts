@@ -8,9 +8,11 @@ import { keibaTheme } from './themes/keiba';
 import { carTheme } from './themes/car';
 import { duckTheme } from './themes/duck';
 import { marathonTheme } from './themes/marathon';
+import { golfTheme } from './themes/golf';
 import { rouletteTheme } from './themes/roulette';
+import { Narrator } from './core/narration';
 
-const THEMES: ThemeModule[] = [keibaTheme, carTheme, duckTheme, marathonTheme, rouletteTheme];
+const THEMES: ThemeModule[] = [keibaTheme, carTheme, duckTheme, marathonTheme, golfTheme, rouletteTheme];
 
 const $ = <T extends HTMLElement>(sel: string): T => document.querySelector(sel) as T;
 
@@ -30,6 +32,7 @@ const winnerNameEl = $('#winner-name');
 const confettiCanvas = $<HTMLCanvasElement>('#confetti-canvas');
 
 const audio = new AudioEngine();
+const narrator = new Narrator();
 let selectedThemeId = 'keiba';
 let currentNames: string[] = [];
 let currentWinner = -1;
@@ -106,6 +109,7 @@ function startRace(names: string[]): void {
       } else {
         telopEl.textContent = text;
         telopEl.classList.remove('hidden');
+        narrator.speak(text);
       }
     },
   });
@@ -120,6 +124,7 @@ function showResult(winner: string): void {
   winnerNameEl.textContent = winner;
   resultOverlay.classList.remove('hidden');
   audio.goalFanfare();
+  narrator.speak(`当選は、${winner}さんです!おめでとうございます!`, { excited: true });
   startConfetti();
 }
 
@@ -128,6 +133,7 @@ function backToSetup(): void {
   controller?.stop();
   controller = null;
   audio.stopAll();
+  narrator.stop();
   resultOverlay.classList.add('hidden');
   screens.race.classList.remove('active');
   screens.setup.classList.add('active');
@@ -228,14 +234,22 @@ let muted = false;
 
 volumeSlider.addEventListener('input', () => {
   audio.setVolume(Number(volumeSlider.value) / 100);
+  narrator.setVolume(Number(volumeSlider.value) / 100);
   saveState({ volume: Number(volumeSlider.value) });
 });
 
 btnMute.addEventListener('click', () => {
   muted = !muted;
   audio.setMuted(muted);
+  narrator.setMuted(muted);
   btnMute.textContent = muted ? '🔇' : '🔊';
   saveState({ muted });
+});
+
+const narrationToggle = $<HTMLInputElement>('#narration-toggle');
+narrationToggle.addEventListener('change', () => {
+  narrator.setEnabled(narrationToggle.checked);
+  saveState({ narration: narrationToggle.checked });
 });
 
 $('#btn-fullscreen').addEventListener('click', () => {
@@ -255,9 +269,14 @@ rosterInput.value = saved.rosterText;
 selectedThemeId = THEMES.find((t) => t.id === saved.themeId && t.available)?.id ?? 'keiba';
 volumeSlider.value = String(saved.volume);
 audio.setVolume(saved.volume / 100);
+narrator.setVolume(saved.volume / 100);
 muted = saved.muted;
 audio.setMuted(muted);
+narrator.setMuted(muted);
 btnMute.textContent = muted ? '🔇' : '🔊';
+narrationToggle.checked = saved.narration && narrator.supported;
+narrator.setEnabled(narrationToggle.checked);
+if (!narrator.supported) narrationToggle.disabled = true;
 const durRadio = document.querySelector<HTMLInputElement>(`input[name="duration"][value="${saved.duration}"]`);
 if (durRadio) durRadio.checked = true;
 

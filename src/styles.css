@@ -166,6 +166,17 @@ body {
   font-size: 14px;
 }
 
+.narration-toggle {
+  display: block;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+.note-inline {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .btn-primary {
   display: block;
   width: 100%;
