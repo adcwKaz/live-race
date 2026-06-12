@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LIVE RACE - レース型抽選ツール</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <!-- セットアップ画面 -->
+  <section id="screen-setup" class="screen active">
+    <header class="setup-header">
+      <h1>🏁 LIVE RACE</h1>
+      <p class="tagline">レースで決める、白熱のオンライン抽選</p>
+    </header>
+
+    <div class="setup-grid">
+      <div class="panel">
+        <h2>参加者 <span id="roster-count" class="count-badge">0名</span></h2>
+        <textarea id="roster-input" placeholder="1行に1名ずつ入力してください&#10;例:&#10;田中&#10;佐藤&#10;鈴木" spellcheck="false"></textarea>
+        <p id="roster-warning" class="warning hidden"></p>
+        <p class="note">🔒 入力した名前は外部に送信されません(ブラウザ内で完結します)</p>
+      </div>
+
+      <div class="panel">
+        <h2>テーマ</h2>
+        <div id="theme-list" class="theme-list"></div>
+
+        <h2>レース時間</h2>
+        <div class="duration-list" id="duration-list">
+          <label><input type="radio" name="duration" value="30" /> 短い (約30秒)</label>
+          <label><input type="radio" name="duration" value="45" checked /> 普通 (約45秒)</label>
+          <label><input type="radio" name="duration" value="60" /> 長い (約60秒)</label>
+        </div>
+
+        <button id="btn-start" class="btn-primary" disabled>レース開始!</button>
+        <p class="note">💡 Zoomで共有するときは「画面の共有」→「音声を共有」にチェックを入れると、BGMも参加者に届きます</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- レース画面 -->
+  <section id="screen-race" class="screen">
+    <canvas id="race-canvas"></canvas>
+    <div id="telop" class="telop hidden"></div>
+    <button id="btn-skip" class="btn-skip">結果へスキップ ≫</button>
+  </section>
+
+  <!-- 結果オーバーレイ -->
+  <div id="result-overlay" class="result-overlay hidden">
+    <canvas id="confetti-canvas"></canvas>
+    <div class="result-box">
+      <p class="result-label">🏆 WINNER 🏆</p>
+      <p id="winner-name" class="winner-name"></p>
+      <div class="result-actions">
+        <button id="btn-rematch-exclude" class="btn-primary">当選者を除いて再レース</button>
+        <button id="btn-rematch-same" class="btn-secondary">同じメンバーでもう一度</button>
+        <button id="btn-back-setup" class="btn-secondary">セットアップに戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 音量コントロール(常時表示) -->
+  <div class="audio-control">
+    <button id="btn-mute" title="ミュート">🔊</button>
+    <input id="volume-slider" type="range" min="0" max="100" value="70" />
+    <button id="btn-fullscreen" title="全画面">⛶</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
